@@ -10,6 +10,8 @@ use GuzzleHttp\Client as HttpClient;
 use Seffeng\SLS\Helpers\ArrayHelper;
 use GuzzleHttp\Exception\RequestException;
 use Seffeng\SLS\Clients\Error;
+use Seffeng\SLS\Clients\LogStore;
+use Seffeng\SLS\Clients\LogUtil;
 
 class SLSClient
 {
@@ -23,13 +25,19 @@ class SLSClient
      *
      * @var string
      */
-    private $host = 'dysmsapi.aliyuncs.com';
+    private $host;
+
+    /**
+     *
+     * @var integer
+     */
+    private $port;
 
     /**
      *
      * @var string
      */
-    private $action = 'SendSms';
+    private $endpoint;
 
     /**
      *
@@ -47,13 +55,43 @@ class SLSClient
      *
      * @var string
      */
-    private $format ='json';
+    private $source;
 
     /**
      *
      * @var string
      */
-    private $signName;
+    private $project;
+
+    /**
+     *
+     * @var string
+     */
+    private $logStore;
+
+    /**
+     *
+     * @var string
+     */
+    private $method;
+
+    /**
+     *
+     * @var string
+     */
+    private $signatureMethod = 'hmac-sha1';
+
+    /**
+     *
+     * @var string
+     */
+    private $version = '0.6.0';
+
+    /**
+     *
+     * @var string
+     */
+    private $timestamp;
 
     /**
      *
@@ -65,49 +103,13 @@ class SLSClient
      *
      * @var string
      */
-    private $signatureMethod = 'HMAC-SHA1';
-
-    /**
-     *
-     * @var string
-     */
-    private $signatureNonce;
-
-    /**
-     *
-     * @var string
-     */
-    private $signatureVersion = '1.0';
-
-    /**
-     *
-     * @var string
-     */
-    private $regionId = 'cn-hangzhou';
-
-    /**
-     *
-     * @var string
-     */
-    private $templateCode;
-
-    /**
-     *
-     * @var string
-     */
-    private $version = '2017-05-25';
-
-    /**
-     *
-     * @var string
-     */
-    private $timestamp;
+    private $compresstype = 'deflate';
 
     /**
      *
      * @var HttpClient
      */
-    private $client;
+    private $httpClient;
 
     /**
      *
@@ -116,11 +118,11 @@ class SLSClient
      * @param string $accessKeyId
      * @param string $accessSecret
      */
-    public function __construct(string $accessKeyId, string $accessSecret)
+    public function __construct(string $accessKeyId, string $accessSecret, string $endpoint)
     {
         $this->accessKeyId = $accessKeyId;
         $this->accessSecret = $accessSecret;
-        $this->client = new HttpClient(['base_uri' => $this->getscheme() . $this->getHost()]);
+        $this->endpoint = $endpoint;
     }
 
     /**
@@ -148,12 +150,138 @@ class SLSClient
     /**
      *
      * @author zxf
-     * @date    2019年11月22日
+     * @date   2020年4月26日
+     * @return string
+     */
+    public function getProject()
+    {
+        return $this->project;
+    }
+
+    /**
+     *
+     * @author zxf
+     * @date   2020年4月26日
+     * @param string $project
+     * @return \Seffeng\SLS\SLSClient
+     */
+    public function setProject(string $project)
+    {
+        $this->project = $project;
+        return $this;
+    }
+
+    /**
+     *
+     * @author zxf
+     * @date   2020年4月26日
+     * @return string
+     */
+    public function getLogStore()
+    {
+        return $this->logStore;
+    }
+
+    /**
+     *
+     * @author zxf
+     * @date   2020年4月26日
+     * @param string $logStore
+     * @return \Seffeng\SLS\SLSClient
+     */
+    public function setLogStore(string $logStore)
+    {
+        $this->logStore = $logStore;
+        return $this;
+    }
+
+    /**
+     *
+     * @author zxf
+     * @date   2020年4月26日
+     * @return string
+     */
+    public function getMethod()
+    {
+        return $this->method;
+    }
+
+    /**
+     *
+     * @author zxf
+     * @date   2020年4月26日
+     * @param string $method
+     * @return \Seffeng\SLS\SLSClient
+     */
+    public function setMethod(string $method)
+    {
+        $this->method = $method;
+        return $this;
+    }
+
+    /**
+     *
+     * @author zxf
+     * @date   2020年4月26日
+     * @return \GuzzleHttp\Client
+     */
+    public function getHttpClient()
+    {
+        if (is_null($this->httpClient)) {
+            $this->setHttpClient();
+        }
+        return $this->httpClient;
+    }
+
+    /**
+     *
+     * @author zxf
+     * @date   2020年4月26日
+     * @return \GuzzleHttp\Client
+     */
+    public function setHttpClient()
+    {
+        $this->httpClient = new HttpClient(['base_uri' => $this->getscheme() . $this->getHost()]);
+        return $this->httpClient;
+    }
+
+    /**
+     *
+     * @author zxf
+     * @date   2020年4月26日
      * @return string
      */
     public function getHost()
     {
-        return $this->host;
+        if (is_null($this->getProject())) {
+            return $this->getEndpoint();
+        } else {
+            return $this->getProject() .'.'. $this->getEndpoint();
+        }
+    }
+
+    /**
+     *
+     * @author zxf
+     * @date   2020年4月26日
+     * @return string
+     */
+    public function getEndpoint()
+    {
+        return $this->endpoint;
+    }
+
+    /**
+     *
+     * @author zxf
+     * @date   2020年4月26日
+     * @param string $endpoint
+     * @return \Seffeng\SLS\SLSClient
+     */
+    public function setEndpoint(string $endpoint)
+    {
+        $this->endpoint = $endpoint;
+        return $this;
     }
 
     /**
@@ -213,37 +341,19 @@ class SLSClient
      * @throws SLSException
      * @return boolean
      */
-    public function putLog(array $content)
+    public function putLogs(array $content)
     {
-        try {
-            print_r($content);exit;
-            $params = $this->getParams();
-            $headers = $this->getHeaders();
-            $query = array_merge($headers, $params);
-            $this->setSignature($query);
-            $query['Signature'] = $this->getSignature();
+        return (new LogStore($this))->putLogs($content);
+    }
 
-            $request = $this->client->get('/', ['query' => $query])->getBody()->getContents();
-            $content = json_decode($request, true);
-            $errorCode = ArrayHelper::getValue($content, 'Code');
+    public function getLogStoreItems()
+    {
+        return (new LogStore($this))->getLogStoreItems();
+    }
 
-            if ($errorCode && $errorCode === 'OK') {
-                return true;
-            }
-
-            $errorItem = new Error($errorCode);
-            $message = $errorItem->getName();
-            $message === '' && $message = ArrayHelper::getValue($content, 'Message', '短信发送失败！') .'['. ArrayHelper::getValue($content, 'Code') .']';
-            throw new SLSException($message);
-        } catch (RequestException $e) {
-            $message = $e->getResponse()->getBody()->getContents();
-            if (!$message) {
-                $message = $e->getMessage();
-            }
-            throw new SLSException($message);
-        } catch (\Exception $e) {
-            throw $e;
-        }
+    public function getShards()
+    {
+        return (new LogStore($this))->getShards();
     }
 
     /**
@@ -255,15 +365,14 @@ class SLSClient
     public function getHeaders()
     {
         return [
-            'AccessKeyId' => $this->getAccessKeyId(),
-            'Action' => $this->getAction(),
-            'RegionId' => $this->getRegionId(),
-            'SignatureMethod' => $this->getSignatureMethod(),
-            'SignatureNonce' => $this->getSignatureNonce(),
-            'SignatureVersion' => $this->getSignatureVersion(),
-            'Timestamp' => $this->getDateTime(),
-            'Version' => $this->getVersion(),
-            'Format' => $this->getFormat(),
+            'Content-Length' => 0,
+            'x-log-bodyrawsize' => 0,
+            'Content-MD5' => '',
+            'Content-Type' => 'application/x-protobuf',
+            'x-log-apiversion' => $this->getVersion(),
+            'x-log-signaturemethod' => $this->getSignatureMethod(),
+            'Host' => $this->getHost(),
+            'Date' => $this->getDateTime(),
         ];
     }
 
@@ -275,97 +384,37 @@ class SLSClient
      * @param  array $content
      * @return array
      */
-    public function getParams($phone, array $content)
+    public function getBody(array $content)
     {
-        is_array($phone) && $phone = implode(',', $phone);
         return [
-            'PhoneNumbers' => $phone,
-            'TemplateCode' => $this->getTemplateCode(),
-            'SignName' => $this->getSignName(),
-            'TemplateParam' => json_encode($content),
         ];
     }
 
     /**
      *
      * @author zxf
-     * @date    2019年11月21日
-     * @param string $signName
-     * @return SLSClient
-     */
-    public function setSignName(string $signName)
-    {
-        $this->signName = $signName;
-        return $this;
-    }
-
-    /**
-     *
-     * @author zxf
-     * @date    2019年11月21日
-     * @return string
-     */
-    public function getSignName()
-    {
-        return $this->signName;
-    }
-
-    /**
-     *
-     * @author zxf
-     * @date    2019年11月21日
-     * @param string $templateCode
-     * @return SLSClient
-     */
-    public function setTemplateCode(string $templateCode)
-    {
-        $this->templateCode = $templateCode;
-        return $this;
-    }
-
-    /**
-     *
-     * @author zxf
-     * @date    2019年11月21日
-     * @return string
-     */
-    public function getTemplateCode()
-    {
-        return $this->templateCode;
-    }
-
-    /**
-     *
-     * @author zxf
      * @date    2019年11月25日
-     * @param  string $value
-     * @return mixed
-     */
-    public function specialUrlEncode(string $value)
-    {
-        $value = urlencode($value);
-        $value = str_replace('+', '%20', $value);
-        $value = str_replace('*', '%2A', $value);
-        $value = str_replace('%7E', '~', $value);
-        return $value;
-    }
-
-    /**
-     *
-     * @author zxf
-     * @date    2019年11月25日
-     * @param array $params
+     * @param string $resource
+     * @param array $body
      * @return SLSClient
      */
-    public function setSignature(array $params)
+    public function setSignature(string $resource, array $body = [])
     {
-        ksort($params);
-        $string = '';
-        foreach ($params as $key => $value) {
-            $string .= '&'. $this->specialUrlEncode($key) .'='. $this->specialUrlEncode($value);
+        $headers = $this->getHeaders();
+        $content = "GET\n";
+        if (isset($headers['Content-MD5'])) {
+            $content .= $headers['Content-MD5'];
+            //$content .= md5('aaa=aaaa&bbbb=bbbb');
         }
-        $string = ltrim($string, '&');
-        $this->signature = base64_encode(hash_hmac('sha1', 'GET&'. $this->specialUrlEncode('/') .'&'. $this->specialUrlEncode($string), $this->getAccessSecret() .'&', true));
+        $content .= "\n";
+        if (isset($headers['Content-Type'])) {
+            $content .= $headers['Content-Type'];
+            $content .= "\n";
+            $content .= $headers['Date'] . "\n";
+            $content .= LogUtil::canonicalizedHeaders($headers) . "\n";
+            $content .= LogUtil::canonicalizedResource($resource, $body);
+        }
+        $this->signature = base64_encode(hash_hmac('sha1', $content, $this->getAccessSecret(), true));
         return $this;
     }
 
@@ -378,54 +427,6 @@ class SLSClient
     public function getSignature()
     {
         return $this->signature;
-    }
-
-    /**
-     *
-     * @author zxf
-     * @date    2019年11月25日
-     * @param  string $action
-     * @return SLSClient
-     */
-    public function setAction(string $action)
-    {
-        $this->action = $action;
-        return $this;
-    }
-
-    /**
-     *
-     * @author zxf
-     * @date    2019年11月25日
-     * @return string
-     */
-    public function getAction()
-    {
-        return $this->action;
-    }
-
-    /**
-     *
-     * @author zxf
-     * @date    2019年11月25日
-     * @param  string $regionId
-     * @return SLSClient
-     */
-    public function setRegionId(string $regionId)
-    {
-        $this->regionId = $regionId;
-        return $this;
-    }
-
-    /**
-     *
-     * @author zxf
-     * @date    2019年11月25日
-     * @return string
-     */
-    public function getRegionId()
-    {
-        return $this->regionId;
     }
 
     /**
@@ -460,7 +461,7 @@ class SLSClient
      */
     public function getDateTime()
     {
-        return gmdate('Y-m-d\TH:i:s\Z', $this->getTimestamp());
+        return gmdate('D, d M Y H:i:s', $this->getTimestamp()). ' GMT';
     }
 
     /**
@@ -516,75 +517,11 @@ class SLSClient
     /**
      *
      * @author zxf
-     * @date    2019年11月25日
-     * @param  string $signatureNonce
-     * @return SLSClient
-     */
-    private function setSignatureNonce()
-    {
-        $this->signatureNonce = md5($this->getTimestamp() . rand(10000, 99999));
-        return $this;
-    }
-
-    /**
-     *
-     * @author zxf
-     * @date    2019年11月25日
+     * @date   2020年4月26日
      * @return string
      */
-    private function getSignatureNonce()
+    private function getCompresstype()
     {
-        if (is_null($this->signatureNonce)) {
-            $this->setSignatureNonce();
-        }
-        return $this->signatureNonce;
-    }
-
-    /**
-     *
-     * @author zxf
-     * @date    2019年11月25日
-     * @param  string $signatureVersion
-     * @return SLSClient
-     */
-    private function setSignatureVersion(string $signatureVersion)
-    {
-        $this->signatureVersion = $signatureVersion;
-        return $this;
-    }
-
-    /**
-     *
-     * @author zxf
-     * @date    2019年11月25日
-     * @return string
-     */
-    private function getSignatureVersion()
-    {
-        return $this->signatureVersion;
-    }
-
-    /**
-     *
-     * @author zxf
-     * @date    2019年11月25日
-     * @param  string $format
-     * @return SLSClient
-     */
-    private function setFormat(string $format)
-    {
-        $this->format = $format;
-        return $this;
-    }
-
-    /**
-     *
-     * @author zxf
-     * @date    2019年11月25日
-     * @return string
-     */
-    private function getFormat()
-    {
-        return $this->format;
+        return $this->compresstype;
     }
 }
